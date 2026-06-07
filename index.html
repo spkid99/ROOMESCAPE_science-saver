@@ -68,7 +68,7 @@
                     <!-- 게임 코드 입력 -->
                     <div class="text-left">
                         <label class="block text-xs font-bold text-blue-400 uppercase tracking-wider mb-2">미션 승인 코드 (Access Code)</label>
-                        <input type="text" id="inputCode" placeholder="승인 코드 (SHADOW2026)" class="w-full bg-gray-900 border border-blue-950 focus:border-blue-400 rounded px-4 py-2 text-white uppercase placeholder-gray-600 focus:outline-none transition-all">
+                        <input type="text" id="inputCode" placeholder="승인 코드" class="w-full bg-gray-900 border border-blue-950 focus:border-blue-400 rounded px-4 py-2 text-white uppercase placeholder-gray-600 focus:outline-none transition-all">
                     </div>
 
                     <div id="loginErrorMessage" class="text-red-500 text-sm hidden font-semibold"></div>
@@ -188,7 +188,7 @@
 
                     <!-- 식물 변환용 메시지 오버레이 -->
                     <div id="arMessageOverlay" class="absolute top-12 left-1/2 -translate-x-1/2 w-11/12 bg-emerald-950/95 border border-emerald-500/80 text-emerald-300 text-[10px] py-1.5 px-3 rounded-lg z-35 text-center font-bold hidden opacity-0 transition-all duration-300">
-                        🌱 식물이 CO2(이산화탄소)를 흡수하고 O2(산소)를 만들어 밖으로 배뱉습니다!
+                        🌱 식물이 CO2(이산화탄소)를 흡수하고 O2(산소)를 만들어 밖으로 뱉습니다!
                     </div>
                     
                     <!-- QR 코드 감지 배너 -->
@@ -212,7 +212,7 @@
                     <div class="text-[8px] text-yellow-500 font-bold uppercase">🛠️ 모의 테스트 연동 리모컨</div>
                     <div class="flex flex-wrap justify-center gap-1" id="virtualQrButtonGrid"></div>
                 </div>
-                <button id="btnQrBypass" class="text-[8px] text-zinc-600 hover:text-zinc-400 underline self-end">우회 패스</button>
+                <button id="btnQrBypass" class="hidden text-[8px] text-zinc-600 hover:text-zinc-400 underline self-end">우회 패스</button>
             </div>
 
             <!-- [단계 5] 4단계 미션 - 소방 화재 진압 -->
@@ -272,7 +272,7 @@
                     <div class="text-[8px] text-blue-400 font-bold uppercase" id="vCardTitleText">🛠️ 원소 모의 카드 시뮬레이터</div>
                     <div class="flex flex-wrap justify-center gap-1.5" id="virtualCardButtonGrid"></div>
                 </div>
-                <button id="btnStage4Bypass" class="text-[8px] text-gray-600 underline self-end">우회 패스</button>
+                <button id="btnStage4Bypass" class="hidden text-[8px] text-gray-600 underline self-end">우회 패스</button>
             </div>
 
             <!-- [단계 6] 섀도우 해킹 및 최종 블랙아웃 화면 -->
@@ -331,6 +331,7 @@
         // 전역 상태 및 자원
         const GAME_STATE = {
             agentName: "GUEST",
+            accessCode: "", // 추가: 로그인한 코드 저장
             bgmPlaying: false,
             phase3: { step: "INIT", satLevel: 0, storedGases: [], scannedCO2Cards: new Set() },
             phase4: { step: "INIT", waterTankCount: 0, scannedElements: { H1: false, H2: false, O1: false }, firesExtinguishedCount: 0 }
@@ -459,7 +460,8 @@
             const name = inputName.value.trim();
             const code = inputCode.value.trim().toUpperCase();
             
-            if (name.length > 0 && code === "SHADOW2026") {
+            // SUMINMANDO 추가
+            if (name.length > 0 && (code === "SHADOW2026" || code === "SUMINMANDO")) {
                 btnStart.disabled = false;
                 btnStart.innerText = "임무 시작 (START MISSION)";
                 btnStart.classList.remove("bg-gray-950", "text-gray-500", "border-gray-700");
@@ -892,6 +894,15 @@
         function renderVirtualQrButtons() {
             if (!virtualQrButtonGrid) return;
             virtualQrButtonGrid.innerHTML = "";
+
+            // 관리자 코드가 아니면 가상 컨트롤러 숨김
+            if (GAME_STATE.accessCode !== "SHADOW2026") {
+                virtualQrController?.classList.add("hidden");
+                if (btnQrBypass) btnQrBypass.classList.add("hidden");
+                return;
+            }
+            if (btnQrBypass) btnQrBypass.classList.remove("hidden");
+
             if (GAME_STATE.phase3.step === "STEP_A") {
                 const btn = document.createElement("button"); btn.className="px-2 py-1 text-[10px] border font-bold rounded transition-all bg-emerald-950 border-emerald-500 text-emerald-300"; btn.innerText="인형 QR 스캔 모사"; btn.onclick=()=>processDecryptedQr("Science Saver_STAGE3_DOLL"); virtualQrButtonGrid.appendChild(btn);
                 virtualQrController?.classList.remove("hidden");
@@ -1007,7 +1018,7 @@
             if (padContainer) padContainer.classList.add("red-alert-active");
             if (secureText) { secureText.innerText = "EMERGENCY MODE"; secureText.className = "text-red-500"; }
             startCameraStreaming4();
-            if (phase4DialogueBox) typeWriter(phase4DialogueBox, "안방 구역 화재 감지! SHADOW가 안방에 불을 내기 위해 방화점 3개를 설치했습니다! 먼저 아래 버튼을 눌러 화재 진압 권한을 획득하세요! ", 25);
+            if (phase4DialogueBox) typeWriter(phase4DialogueBox, "안방 구역 화재 감지! SHADOW가 안방에 방화점 3개를 설치했습니다! 불이 번지기 전에 화재를 진압해야합니다! 먼저 아래 버튼을 눌러 화재 진압 권한을 획득하세요! ", 25);
         }
 
         function startCameraStreaming4() {
@@ -1094,6 +1105,14 @@
             virtualCardButtonGrid.innerHTML = "";
             const titleText = document.getElementById("vCardTitleText");
 
+            // 관리자 코드가 아니면 가상 컨트롤러 숨김
+            if (GAME_STATE.accessCode !== "SHADOW2026") {
+                virtualCardController?.classList.add("hidden");
+                if (btnStage4Bypass) btnStage4Bypass.classList.add("hidden");
+                return;
+            }
+            if (btnStage4Bypass) btnStage4Bypass.classList.remove("hidden");
+
             if (GAME_STATE.phase4.step === "STEP_B") {
                 if (titleText) titleText.innerText = "🛠️ 가상 스캔 모듈 (테스트용 대체 버튼)";
                 virtualCardController?.classList.remove("hidden");
@@ -1130,7 +1149,7 @@
             if (phase4StepTitle) phase4StepTitle.innerText = "STEP B: 소방 시스템 가동";
             if (combineZone) combineZone.classList.remove("hidden");
             renderVirtualCardButtons();
-            if (phase4DialogueBox) typeWriter(phase4DialogueBox, "화재를 진압하기 위해 당신이 소방 시스템을 가동해야 합니다. 필요한 원소를 화면 중앙의 [원소 결합 구역]에 모두 드래그해 넣어주세요!", 25);
+            if (phase4DialogueBox) typeWriter(phase4DialogueBox, "화재를 진압하기 위해 당신이 소방 시스템을 가동해야 합니다. 필요한 원소카드를 인식시키고, 화면 중앙의 [원소 결합 구역]에서 물을 합성해주세요!", 25);
         }
 
         function spawnElementParticle(elementName, colorClass) {
@@ -1263,7 +1282,7 @@
             }
             const hackMsg = document.getElementById("hack-msg");
             if (hackMsg) {
-                typeWriter(hackMsg, "하하하!!! ${GAME_STATE.agentName} 요원! 여기까지 애썼지만 모두 헛수고다!! 거실 컴퓨터에 시한폭탄이 작동했다! 태블릿 연동을 끊겠다. 저승에서 보자!!", 40, () => {
+                typeWriter(hackMsg, "하하하!!! 여기까지 애썼지만 모두 헛수고다!! 거실 컴퓨터에 시한폭탄을 작동시켰다! 너희 집은 곧 폭발한다. 태블릿 연동을 끊겠다. 저승에서 보자!!", 40, () => {
                     setTimeout(() => {
                         playBGM(SHADOW_AUDIO_URL);
                         if (stageFinal) {
@@ -1307,8 +1326,10 @@
             if (btnStart) {
                 btnStart.onclick = () => {
                     const code = inputCode.value.trim().toUpperCase();
-                    if (code === "SHADOW2026") {
+                    // SUMINMANDO 추가
+                    if (code === "SHADOW2026" || code === "SUMINMANDO") {
                         GAME_STATE.agentName = inputName.value.trim();
+                        GAME_STATE.accessCode = code; // 로그인한 코드 저장
                         if (agentNameDisplay) agentNameDisplay.innerText = `AGENT: ${GAME_STATE.agentName}`;
                         loginErrorMessage?.classList.add("hidden");
                         
@@ -1360,7 +1381,7 @@
             };
             if (btnPlantScan) btnPlantScan.onclick = () => { GAME_STATE.phase3.storedGases=[]; updateCanisterUI(); spawnGasParticles("CO2", 6); showSystemWarning("이산화탄소 방출 완료!"); };
             if (btnFireVerify) btnFireVerify.onclick = () => {
-                btnFireVerify.classList.add("hidden"); typeWriter(phase4DialogueBox, "화재를 진압하기 위해 당신이 소방 시스템을 가동해야 합니다. 이 영상을 보고 필요한 재료를 만드세요!", 25, () => {
+                btnFireVerify.classList.add("hidden"); typeWriter(phase4DialogueBox, "화재를 진압하기 위해 당신이 소방 시스템을 가동해야 합니다. 물을 얻기 위해 이 영상을 보세요!", 25, () => {
                     const btnV = document.createElement("button"); btnV.className="w-full py-2 mt-2 bg-red-900 border border-red-500 rounded font-bold text-xs text-white cyber-font"; btnV.innerText="🎬 물 합성 영상 보기";
                     btnV.onclick=() => triggerHintVideoModal(PATH_STAGE4_VIDEO);
                     phase4DialogueBox.appendChild(btnV);
