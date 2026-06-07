@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHADOW AGENT: SCIENCE SAVER GAME</title>
+    <!-- Tailwind CSS 및 QR 해독 엔진 주입 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #030712; color: #e5e7eb; overflow-x: hidden; }
+        .cyber-font { font-family: 'Orbitron', sans-serif; letter-spacing: 1px; }
+        .neon-blue { box-shadow: 0 0 15px rgba(59, 130, 246, 0.45); border-color: rgba(59, 130, 246, 0.75); }
+        .neon-green { box-shadow: 0 0 15px rgba(16, 185, 129, 0.45); border-color: rgba(16, 185, 129, 0.75); }
+        .neon-red { box-shadow: 0 0 15px rgba(239, 68, 68, 0.45); border-color: rgba(239, 68, 68, 0.75); }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+        .shake-effect { animation: shake 0.4s ease-in-out; }
+        .fade-in { animation: fadeIn 0.8s forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+        .scanlines { background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 4px, 6px 100%; }
+        .gas-bubble { touch-action: none; user-select: none; cursor: grab; transition: transform 0.05s ease-out; }
+        .gas-bubble:active { cursor: grabbing; transform: scale(1.1); }
+        @keyframes glitchAnimation { 0% { transform: translate(0) skew(0deg); filter: hue-rotate(0deg); } 20% { transform: translate(-2px, 2px) skew(-5deg); filter: hue-rotate(90deg); } 40% { transform: translate(2px, -1px) skew(3deg); } 60% { transform: translate(0) skew(0deg); } }
+        .glitch-active { animation: glitchAnimation 0.3s infinite; }
+    </style>
+</head>
+<body class="scanlines min-h-screen flex flex-col items-center justify-center p-4 relative font-sans">
+
+    <!-- 뒷배경 파티클 효과용 캔버스 -->
+    <canvas id="particleCanvas" class="absolute top-0 left-0 w-full h-full pointer-events-none z-0"></canvas>
+
+    <!-- 메인 스마트 패드 하우징 -->
+    <main class="w-full max-w-2xl bg-gray-900 border-4 border-blue-500 rounded-3xl p-6 md:p-8 z-10 relative flex flex-col justify-between neon-blue-glow min-h-[600px] transition-all duration-500" id="padContainer">
+        
+        <!-- 상단 상태 표시줄 -->
+        <div class="flex justify-between items-center border-b border-blue-900 pb-3 mb-4 text-xs cyber-font text-blue-400">
+            <div class="flex items-center gap-2">
+                <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" id="secureIndicator"></span>
+                <span id="secureText">SECURE CONNECTION : ACTIVE</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <span id="agentNameDisplay">AGENT: GUEST</span>
+                <span id="systemTime">00:00 KST</span>
+            </div>
+        </div>
+
+        <!-- 내부 화면 콘텐츠 영역 -->
+        <div class="flex-grow flex flex-col justify-center relative" id="stageContent">
+            
+            <!-- [단계 0] 게임 시작 대기 화면 -->
+            <div id="stage0" class="fade-in flex flex-col items-center text-center">
+                <div class="mb-4">
+                    <div class="w-16 h-16 mx-auto mb-2 border-2 border-blue-500 rounded-full flex items-center justify-center bg-blue-950/50">
+                        <svg class="w-8 h-8 text-blue-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                    </div>
+                    <h1 class="text-2xl md:text-3xl font-black tracking-widest text-blue-400 cyber-font neon-text-blue">PROJECT: SCIENCE-SAVER</h1>
+                    <p class="text-xs text-gray-400 mt-1 uppercase tracking-wider">Shadow Counter-Operation Terminal v1.02</p>
+                </div>
+
+                <div class="w-full max-w-md bg-gray-950/80 p-6 rounded-xl border border-gray-800 space-y-4 my-4">
+                    <!-- 요원 이름 입력 -->
+                    <div class="text-left">
+                        <label class="block text-xs font-bold text-blue-400 uppercase tracking-wider mb-2">요원 이름 (Agent Name)</label>
+                        <input type="text" id="inputName" placeholder="요원의 이름을 입력하십시오." class="w-full bg-gray-900 border border-blue-950 focus:border-blue-400 rounded px-4 py-2 text-white placeholder-gray-600 focus:outline-none transition-all">
+                    </div>
+
+                    <!-- 게임 코드 입력 -->
+                    <div class="text-left">
+                        <label class="block text-xs font-bold text-blue-400 uppercase tracking-wider mb-2">미션 승인 코드 (Access Code)</label>
+                        <input type="text" id="inputCode" placeholder="승인 코드 (SHADOW2026)" class="w-full bg-gray-900 border border-blue-950 focus:border-blue-400 rounded px-4 py-2 text-white uppercase placeholder-gray-600 focus:outline-none transition-all">
+                    </div>
+
+                    <div id="loginErrorMessage" class="text-red-500 text-sm hidden font-semibold"></div>
+                </div>
+
+                <button id="btnStart" class="w-full max-w-md py-3 bg-gray-950 border border-gray-700 rounded-lg font-bold uppercase tracking-wider text-gray-500 transition-all disabled:opacity-50 cyber-font" disabled>
+                    요원 정보 대기 중...
+                </button>
+            </div>
+
+            <!-- [단계 1] 오프닝 - 가을이의 긴급 무전 -->
+            <div id="stage1" class="hidden fade-in flex flex-col h-full">
+                <div class="flex items-center gap-4 bg-gray-950/80 p-4 rounded-xl border border-blue-950/60 mb-4">
+                    <div class="relative" id="autumnProfileBox">
+                        <div class="w-16 h-16 rounded-full bg-blue-950 border-2 border-emerald-400 flex items-center justify-center overflow-hidden">
+                            <svg viewBox="0 0 100 100" class="w-12 h-12 text-emerald-400"><circle cx="50" cy="35" r="18" stroke="currentColor" stroke-width="3" fill="none" /><path d="M20 80 C 20 55, 80 55, 80 80" stroke="currentColor" stroke-width="3" fill="none" /><circle cx="50" cy="35" r="5" fill="currentColor" /></svg>
+                        </div>
+                        <span class="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-gray-900 rounded-full flex items-center justify-center text-[8px] text-white animate-pulse">●</span>
+                    </div>
+                    <div class="flex-grow">
+                        <div class="text-xs text-emerald-400 font-bold tracking-wider cyber-font">SENDER: AGENT AUTUMN</div>
+                        <div class="text-lg font-bold text-gray-200">가을 요원</div>
+                        <div class="text-[10px] text-gray-500 flex items-center gap-1">
+                            <span class="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
+                            <span>INCOMING SECURE TRANSMISSION...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-950/65 flex-grow p-4 md:p-6 rounded-xl border border-gray-800 flex flex-col justify-between min-h-[220px]">
+                    <div class="text-gray-300 leading-relaxed text-sm md:text-base" id="dialogueText"></div>
+                    
+                    <div class="flex justify-end gap-3 mt-2">
+                        <button id="btnNextDialogue" class="px-6 py-2 bg-emerald-950 border border-emerald-600 rounded text-emerald-400 font-bold text-sm hover:bg-emerald-600 hover:text-white transition-all">다음 (NEXT)</button>
+                        <button id="btnBagFound" class="hidden px-6 py-2 bg-blue-900 border border-blue-500 rounded text-blue-200 font-bold text-sm hover:bg-blue-600 hover:text-white transition-all neon-blue-glow">[단서를 찾았습니다]</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- [단계 2] 1단계 미션 - 사라진 요원의 메세지 -->
+            <div id="stage2" class="hidden fade-in flex flex-col text-center space-y-6">
+                <div>
+                    <span class="px-3 py-1 bg-blue-950/40 border border-blue-500/50 rounded-full text-xs text-blue-400 font-bold cyber-font">MISSION PHASE 01</span>
+                    <h2 class="text-xl md:text-2xl font-bold text-white mt-3">요원이 남긴 단서</h2>
+                </div>
+                <div class="bg-gray-950/80 p-5 rounded-xl border border-gray-800 text-left space-y-3">
+                    <p class="text-sm md:text-base leading-relaxed text-gray-300">"좋아, 가방을 찾았구나! 요원이 사라지기 직전에 SHADOW의 공격 무기를 알아냈고, 무기명을 비밀밀서에 남겼다고 했어. 밀서의 위치는 <span class="text-yellow-400 font-bold">'7번'</span>기호와 연관되어 있다고 했는데 그게 무슨 의미인지 모르겠어. 혹시 가방에서 그 기호를 알 수 있는 힌트가 있을까?"</p>
+                </div>
+                <div class="w-full max-w-sm flex gap-2">
+                    <input type="text" id="inputChemical" placeholder="기호 입력" maxlength="2" class="flex-grow bg-slate-950 border border-blue-950 focus:border-blue-400 rounded-lg px-4 text-center text-lg font-black uppercase text-blue-400 focus:outline-none transition-all cyber-font">
+                    <button id="btnSubmitChemical" class="px-6 py-2 bg-blue-950 border border-blue-500 text-blue-400 hover:bg-blue-600 hover:text-white rounded-lg font-bold text-xs transition-all cyber-font">TRANSMIT</button>
+                </div>
+                <div id="successPhase1" class="hidden text-emerald-400 text-xs font-bold bg-emerald-950/30 border border-emerald-900/30 p-2.5 rounded-lg w-full max-w-sm text-center">단서 오픈!</div>
+                <button id="btnGoToPhase2" class="hidden w-full max-w-sm py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition-all">2단계 진행하기 →</button>
+            </div>
+
+            <!-- [단계 3] 요원의 밀서 -->
+            <div id="stage3" class="hidden fade-in flex flex-col space-y-4">
+                <div class="text-center">
+                    <span class="px-2.5 py-0.5 bg-purple-950 border border-purple-500/50 rounded-full text-[10px] text-purple-400 font-bold cyber-font">PHASE 02</span>
+                    <h2 class="text-base font-bold text-white mt-2">밀서 해독</h2>
+                </div>
+                <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 text-xs md:text-sm text-gray-300 leading-relaxed cursor-pointer" id="phase2Dialogue"></div>
+                <div id="phase2LetterCheck" class="flex justify-center">
+                    <button id="btnLetterFound" class="hidden px-6 py-2 bg-purple-900 border border-purple-500 text-purple-200 font-bold text-xs rounded-lg transition-all hover:bg-purple-600 hover:text-white">밀서를 찾았습니다</button>
+                </div>
+                <div id="phase2WeaponInput" class="hidden flex flex-col items-center space-y-3">
+                    <input type="text" id="inputWeapon" placeholder="SHADOW의 공격 무기명" class="w-full max-w-md bg-slate-950 border border-purple-950 focus:border-purple-400 rounded-lg px-4 py-2 text-sm text-center text-white focus:outline-none transition-all">
+                    <button id="btnSubmitWeapon" class="w-full max-w-md py-2 bg-purple-950 border border-purple-500 text-purple-400 hover:bg-purple-600 hover:text-white text-xs font-bold rounded-lg transition-all">무기명 전송</button>
+                </div>
+                <div id="successPhase2" class="hidden flex flex-col items-center space-y-2">
+                    <button id="btnNextToPhase3" class="w-full max-w-md py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition-all animate-bounce">동물 친구 구출 단계(3단계) 진입 →</button>
+                </div>
+            </div>
+
+            <!-- [단계 4] 3단계 미션 - 인형 구출 작전 -->
+            <div id="stage4" class="hidden fade-in flex flex-col h-full relative space-y-3">
+                <div class="grid grid-cols-3 gap-2 bg-slate-950 p-2.5 rounded-xl border border-blue-900/50" id="phase3Monitor">
+                    <div class="col-span-2 space-y-1">
+                        <div class="flex items-center gap-1.5 text-[10px] text-red-400 font-bold cyber-font tracking-wider">
+                            <span class="inline-block w-2 h-2 rounded-full bg-red-500 animate-ping"></span><span id="p3SirenText">⚠️ 경고: 산소 부족!</span>
+                        </div>
+                        <div class="text-sm font-bold text-gray-200" id="phase3StepTitle">STEP A: 인형 발견 및 암호 인증</div>
+                    </div>
+                    <div class="flex flex-col justify-center items-end">
+                        <span class="text-[10px] cyber-font text-blue-400 font-bold mb-0.5">O2: <span id="satPercent">0%</span></span>
+                        <div class="w-full bg-gray-900 h-2 rounded-full overflow-hidden border border-blue-950">
+                            <div id="satBar" class="bg-red-600 h-full w-0 transition-all duration-500"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3단계 AR 카메라 -->
+                <div class="relative w-full h-[280px] bg-black border-2 border-red-600 rounded-2xl overflow-hidden" id="arContainer">
+                    <video id="cameraVideo" class="hidden" autoplay playsinline></video>
+                    <canvas id="cameraCanvas" class="absolute top-0 left-0 w-full h-full object-cover z-0"></canvas>
+                    <div class="absolute inset-0 border border-red-500/20 pointer-events-none flex items-center justify-center z-10">
+                        <div class="w-24 h-24 border-2 border-dashed border-red-500 rounded-full animate-spin" style="animation-duration: 10s;"></div>
+                    </div>
+                    <div id="targetPlant" class="absolute left-6 top-1/2 -translate-y-1/2 w-20 h-20 border border-dashed border-emerald-500/30 bg-emerald-950/20 rounded-xl flex flex-col items-center justify-center hidden z-20">
+                        <span class="text-[8px] text-emerald-400 font-bold uppercase">식물화분</span>
+                    </div>
+                    <div id="targetDoll" class="absolute right-6 top-1/2 -translate-y-1/2 w-20 h-20 border border-dashed border-emerald-500/30 bg-emerald-950/20 rounded-xl flex flex-col items-center justify-center hidden z-20">
+                        <span class="text-[8px] text-emerald-400 font-bold uppercase">인형친구</span>
+                    </div>
+                    <div id="dragSandbox" class="absolute inset-0 z-20 overflow-hidden pointer-events-auto"></div>
+                    
+                    <div class="absolute bottom-2 right-2 bg-slate-950/90 border border-blue-500/60 rounded-lg px-2 py-1 flex items-center gap-1.5 text-[8px] z-30" id="gasCanister">
+                        <div class="relative w-5 h-7 border border-blue-400 rounded bg-blue-950/40">
+                            <div id="canisterFluid" class="w-full bg-blue-500/40 h-0 absolute bottom-0 left-0 transition-all duration-300"></div>
+                        </div>
+                        <div class="flex flex-col justify-center text-left">
+                            <span class="text-[8px] text-gray-500 font-bold">기체 보관통</span>
+                            <span id="canisterStatusText" class="text-[9px] font-black text-blue-400 cyber-font">EMPTY</span>
+                        </div>
+                    </div>
+
+                    <!-- 식물 변환용 메시지 오버레이 -->
+                    <div id="arMessageOverlay" class="absolute top-12 left-1/2 -translate-x-1/2 w-11/12 bg-emerald-950/95 border border-emerald-500/80 text-emerald-300 text-[10px] py-1.5 px-3 rounded-lg z-35 text-center font-bold hidden opacity-0 transition-all duration-300">
+                        🌱 식물이 CO2(이산화탄소)를 흡수하고 O2(산소)를 만들어 밖으로 배뱉습니다!
+                    </div>
+                    
+                    <!-- QR 코드 감지 배너 -->
+                    <div id="qrAlertBanner" class="absolute top-2 left-1/2 -translate-x-1/2 bg-blue-950/95 border border-blue-400 text-blue-300 text-[10px] px-4 py-1.5 rounded-full z-30 hidden animate-bounce shadow-2xl neon-blue-glow font-bold text-center">
+                        🔍 전용 QR 코드를 조준점 중앙에 비추어 주세요
+                    </div>
+                </div>
+
+                <!-- 산소 경고 박스 -->
+                <div id="oxygen-alert-box" class="h-5 flex items-center justify-center bg-gray-950/60 rounded border border-red-500/10 px-2 py-0.5">
+                    <span id="oxygen-alert-text" class="text-red-500 font-bold animate-pulse text-[10px]">경고! 산소 부족 경보</span>
+                </div>
+                
+                <div class="bg-gray-950/70 p-3.5 rounded-xl border border-gray-800 text-[11px] text-gray-300 leading-relaxed min-h-[60px]" id="phase3DialogueBox"></div>
+
+                <div class="flex gap-2">
+                    <button id="btnDollScan" class="flex-1 py-1.5 bg-emerald-950 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded border border-emerald-600 text-[10px] font-black uppercase tracking-wider transition-all">인형 스캔 (SCAN DOLL)</button>
+                    <button id="btnPlantScan" class="hidden flex-1 py-1.5 bg-blue-950 hover:bg-blue-600 text-blue-400 hover:text-white rounded border border-blue-600 text-[10px] font-black uppercase tracking-wider transition-all">화분 스캔 (SCAN PLANT)</button>
+                </div>
+                <div id="virtualQrController" class="hidden bg-slate-950/80 p-2 rounded-xl border border-slate-800 space-y-1.5">
+                    <div class="text-[8px] text-yellow-500 font-bold uppercase">🛠️ 모의 테스트 연동 리모컨</div>
+                    <div class="flex flex-wrap justify-center gap-1" id="virtualQrButtonGrid"></div>
+                </div>
+                <button id="btnQrBypass" class="text-[8px] text-zinc-600 hover:text-zinc-400 underline self-end">우회 패스</button>
+            </div>
+
+            <!-- [단계 5] 4단계 미션 - 소방 화재 진압 -->
+            <div id="stage5" class="hidden fade-in flex flex-col h-full relative space-y-3">
+                <div class="grid grid-cols-3 gap-2 bg-red-950/90 p-3 rounded-xl border border-red-500/60" id="phase4Monitor">
+                    <div class="col-span-2 space-y-1">
+                        <div class="flex items-center gap-1.5 text-[10px] text-red-400 font-bold cyber-font tracking-wider">
+                            <span class="inline-block w-2 h-2 rounded-full bg-red-500 animate-ping"></span><span>⚠️ 안방 화재 발생!</span>
+                        </div>
+                        <div class="text-xs font-bold text-gray-200" id="phase4StepTitle">STEP A: 화재 인증</div>
+                    </div>
+                    <div class="flex flex-col justify-center items-end">
+                        <span class="text-[10px] cyber-font text-blue-400 font-bold mb-0.5">WATER: <span id="waterPercent">0/3</span></span>
+                        <div class="w-full bg-gray-900 h-2 rounded-full overflow-hidden border border-blue-950">
+                            <div id="waterBar" class="bg-blue-600 h-full w-0 transition-all duration-500"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4단계 AR 화재 뷰포트 -->
+                <div class="relative w-full h-[280px] bg-black border-2 border-red-600 rounded-2xl overflow-hidden" id="arContainer4">
+                    <canvas id="cameraCanvas4" class="absolute top-0 left-0 w-full h-full object-cover z-0"></canvas>
+                    <div class="absolute inset-0 bg-red-600/10 pointer-events-none z-10 animate-pulse"></div>
+
+                    <!-- 원소 결합 구역 -->
+                    <div id="combineZone" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 border-2 border-dashed border-blue-400/40 rounded-full flex items-center justify-center bg-blue-950/10 hidden z-10">
+                        <span class="absolute text-[8px] text-blue-400 font-bold uppercase">원소 결합 구역</span>
+                    </div>
+                    <div id="dragSandbox4" class="absolute inset-0 z-20 overflow-hidden pointer-events-auto"></div>
+
+                    <div class="absolute bottom-2 right-2 bg-gray-950/95 border border-blue-500/80 rounded-xl px-3 py-1.5 z-30 flex items-center gap-2" id="waterTankCanister">
+                        <div class="relative w-7 h-9 border-2 border-blue-500 rounded overflow-hidden bg-blue-950/30">
+                            <div id="waterCanisterFluid" class="w-full bg-blue-500/40 h-0 absolute bottom-0 left-0 transition-all duration-300"></div>
+                        </div>
+                        <div class="flex flex-col justify-center text-left">
+                            <span class="text-[8px] text-gray-500 font-bold">물 탱크</span>
+                            <span id="waterStatusText" class="text-[10px] font-black text-blue-400 cyber-font">EMPTY</span>
+                        </div>
+                    </div>
+
+                    <!-- 화염 레이어 -->
+                    <div id="flameLayer" class="absolute inset-0 z-15 hidden">
+                        <div id="fire1" class="absolute left-10 top-10 cursor-pointer hidden"><span class="text-4xl filter drop-shadow-[0_0_12px_red] animate-bounce inline-block">🔥</span></div>
+                        <div id="fire2" class="absolute left-12 top-1/2 -translate-y-1/2 cursor-pointer hidden"><span class="text-4xl filter drop-shadow-[0_0_12px_red] animate-pulse inline-block">🔥</span></div>
+                        <div id="fire3" class="absolute right-12 top-1/3 cursor-pointer hidden"><span class="text-4xl filter drop-shadow-[0_0_12px_red] animate-bounce inline-block">🔥</span></div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-950/70 p-3.5 rounded-xl border border-gray-800 text-[11px] text-gray-300 leading-relaxed min-h-[70px]" id="phase4DialogueBox"></div>
+
+                <div class="flex gap-2">
+                    <button id="btnFireVerify" class="flex-1 py-2 bg-red-950 border border-red-600 rounded text-red-400 font-bold text-xs hover:bg-red-600 hover:text-white transition-all cyber-font">인증 스캔 (화재 확인)</button>
+                    <!-- 물 개방 버튼 -->
+                    <button id="btnReleaseWater" class="hidden flex-1 py-2 bg-blue-950 border border-blue-600 rounded text-blue-400 font-bold text-xs hover:bg-blue-600 hover:text-white transition-all cyber-font">물 개방 (RELEASE WATER)</button>
+                </div>
+                <div id="virtualCardController" class="hidden bg-gray-950/90 p-2 rounded-xl border border-gray-800 space-y-1.5">
+                    <div class="text-[8px] text-blue-400 font-bold uppercase" id="vCardTitleText">🛠️ 원소 모의 카드 시뮬레이터</div>
+                    <div class="flex flex-wrap justify-center gap-1.5" id="virtualCardButtonGrid"></div>
+                </div>
+                <button id="btnStage4Bypass" class="text-[8px] text-gray-600 underline self-end">우회 패스</button>
+            </div>
+
+            <!-- [단계 6] 섀도우 해킹 및 최종 블랙아웃 화면 -->
+            <div id="stageFinal" class="hidden fade-in flex flex-col items-center justify-center space-y-6 py-12 text-center select-none">
+                <!-- 동적 렌더링 영역 -->
+            </div>
+
+        </div>
+
+        <!-- 스마트 패드 하단 컨트롤 바 -->
+        <div class="mt-4 pt-3 border-t border-blue-900/60 flex justify-between items-center text-xs text-gray-500 text-center">
+            <div>DEVICE STATE: COGNITIVE DECRYPTOR READY</div>
+            <div class="flex items-center gap-2">
+                <button id="btnHome" class="px-2 py-1 bg-gray-950 border border-red-900 text-[10px] text-red-500 rounded hover:bg-red-950 transition-all font-bold">RESET</button>
+                <button id="btnBgmToggle" class="px-2 py-1 bg-gray-950 border border-blue-900 text-[10px] text-blue-400 rounded hover:bg-slate-950 transition-all">BGM: OFF</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- 힌트 비디오 팝업 (HTML5) -->
+    <div id="videoPopup" class="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 hidden">
+        <div class="w-full max-w-3xl bg-gray-900 border-2 border-red-500 rounded-2xl p-4 flex flex-col space-y-4">
+            <div class="flex justify-between items-center border-b border-gray-800 pb-2">
+                <span class="text-xs font-bold text-red-500 cyber-font">⚠️ DECRYPTED VIDEO STREAM</span>
+                <span class="text-[10px] text-gray-400">시청 완료 시 자동 종료</span>
+            </div>
+            <div class="relative w-full aspect-video rounded-lg overflow-hidden bg-black flex items-center justify-center">
+                <video id="hintVideo" class="w-full h-full object-contain" playsinline controls></video>
+            </div>
+            <div class="flex justify-end">
+                <button id="btnCloseVideo" class="px-5 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded text-xs transition-all">건너뛰기 (SKIP)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 비밀번호 입력 모달 -->
+    <div id="decryptModal" class="absolute inset-0 bg-gray-950/90 z-40 flex items-center justify-center p-4 hidden">
+        <div class="bg-gray-900 border-2 border-blue-500 rounded-2xl p-6 w-full max-w-sm flex flex-col space-y-4">
+            <div class="text-center">
+                <span class="text-xs font-black text-blue-400 cyber-font tracking-widest">🔐 DECRYPTION REQUIRED</span>
+                <h3 class="text-sm font-bold text-gray-200 mt-1" id="decryptPromptText">수동 암호를 입력하십시오</h3>
+            </div>
+            <input type="text" id="decryptInput" class="w-full bg-gray-950 border border-blue-900 focus:border-blue-400 rounded-lg px-4 py-2.5 text-center text-white focus:outline-none uppercase cyber-font">
+            <div class="flex gap-2">
+                <button id="btnDecryptCancel" class="flex-1 py-2 bg-gray-800 text-gray-400 font-bold rounded text-xs transition-all">취소</button>
+                <button id="btnDecryptConfirm" class="flex-1 py-2 bg-blue-600 text-white font-bold rounded text-xs cyber-font transition-all">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="customToast" class="fixed top-6 left-1/2 -translate-x-1/2 px-6 py-3 bg-red-950/95 border border-red-500 text-red-200 text-sm font-bold rounded-xl shadow-2xl z-50 hidden transition-all duration-300"></div>
+
+    <audio id="gameBgm" loop></audio>
+
+    <script>
+        // 전역 상태 및 자원
+        const GAME_STATE = {
+            agentName: "GUEST",
+            bgmPlaying: false,
+            phase3: { step: "INIT", satLevel: 0, storedGases: [], scannedCO2Cards: new Set() },
+            phase4: { step: "INIT", waterTankCount: 0, scannedElements: { H1: false, H2: false, O1: false }, firesExtinguishedCount: 0 }
+        };
+
+        const PATH_STAGE3_VIDEO = "assets/stage3_video_f.mp4";
+        const PATH_STAGE4_VIDEO = "assets/stage4_video_f.mp4";
+        const BGM_URL = "https://actions.google.com/sounds/v1/science_fiction/teleport.ogg";
+        const BGM_URL_STAGE3 = "https://actions.google.com/sounds/v1/science_fiction/ambient_loop.ogg";
+        const SHADOW_AUDIO_URL = "https://actions.google.com/sounds/v1/science_fiction/alien_computer_terminal.ogg";
+
+        let localStream = null, isCameraActive = false, audioCtx = null;
+        let typingTimer = null, isTyping = false, dialogueIndex = 0, dialogueParagraphs = [];
+        let activeDecryptCallback = null;
+        let canvas, ctx, particles = [];
+        const neonColors = ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ec4899"];
+
+        // DOM 변수들
+        let padContainer, agentNameDisplay, inputName, inputCode, btnStart, loginErrorMessage;
+        let stage0, stage1, stage2, stage3, stage4, stage5, stageFinal, stageContent;
+        let dialogueText, btnNextDialogue, btnBagFound;
+        let inputChemical, btnSubmitChemical, successPhase1, errorPhase1, btnGoToPhase2;
+        let phase2Dialogue, btnLetterFound, phase2LetterCheck, phase2WeaponInput, inputWeapon, btnSubmitWeapon, successPhase2, errorPhase2, btnNextToPhase3;
+        let cameraVideo, cameraCanvas, cameraCtx, cameraCanvas4, cameraCtx4;
+        let phase3StepTitle, satPercent, satBar, dragSandbox, qrAlertBanner, phase3DialogueBox, arMessageOverlay;
+        let btnDollScan, btnPlantScan, gasCanister, canisterFluid, canisterStatusText, btnQrBypass;
+        let targetPlant, targetDoll, virtualQrController, virtualQrButtonGrid;
+        let phase4StepTitle, waterPercent, waterBar, dragSandbox4, combineZone, waterTankCanister, waterCanisterFluid, waterStatusText;
+        let flameLayer, phase4DialogueBox, btnFireVerify, btnReleaseWater, virtualCardController, virtualCardButtonGrid, btnStage4Bypass;
+        let videoPopup, btnCloseVideo, hintVideo, customToast, decryptModal, decryptPromptText, decryptInput, btnDecryptCancel, btnDecryptConfirm;
+        let btnBgmToggle, btnHome, secureIndicator, secureText, p3SirenText;
+
+        function cacheDOMElements() {
+            padContainer = document.getElementById("padContainer");
+            agentNameDisplay = document.getElementById("agentNameDisplay");
+            inputName = document.getElementById("inputName");
+            inputCode = document.getElementById("inputCode");
+            btnStart = document.getElementById("btnStart");
+            loginErrorMessage = document.getElementById("loginErrorMessage");
+            stage0 = document.getElementById("stage0");
+            stage1 = document.getElementById("stage1");
+            stage2 = document.getElementById("stage2");
+            stage3 = document.getElementById("stage3");
+            stage4 = document.getElementById("stage4");
+            stage5 = document.getElementById("stage5");
+            stageFinal = document.getElementById("stageFinal");
+            stageContent = document.getElementById("stageContent");
+            dialogueText = document.getElementById("dialogueText");
+            btnNextDialogue = document.getElementById("btnNextDialogue");
+            btnBagFound = document.getElementById("btnBagFound");
+            inputChemical = document.getElementById("inputChemical");
+            btnSubmitChemical = document.getElementById("btnSubmitChemical");
+            successPhase1 = document.getElementById("successPhase1");
+            errorPhase1 = document.getElementById("errorPhase1");
+            btnGoToPhase2 = document.getElementById("btnGoToPhase2");
+            phase2Dialogue = document.getElementById("phase2Dialogue");
+            btnLetterFound = document.getElementById("btnLetterFound");
+            phase2LetterCheck = document.getElementById("phase2LetterCheck");
+            phase2WeaponInput = document.getElementById("phase2WeaponInput");
+            inputWeapon = document.getElementById("inputWeapon");
+            btnSubmitWeapon = document.getElementById("btnSubmitWeapon");
+            successPhase2 = document.getElementById("successPhase2");
+            errorPhase2 = document.getElementById("errorPhase2");
+            btnNextToPhase3 = document.getElementById("btnNextToPhase3");
+            cameraVideo = document.getElementById("cameraVideo");
+            cameraCanvas = document.getElementById("cameraCanvas");
+            if (cameraCanvas) cameraCtx = cameraCanvas.getContext("2d");
+            cameraCanvas4 = document.getElementById("cameraCanvas4");
+            if (cameraCanvas4) cameraCtx4 = cameraCanvas4.getContext("2d");
+            phase3StepTitle = document.getElementById("phase3StepTitle");
+            satPercent = document.getElementById("satPercent");
+            satBar = document.getElementById("satBar");
+            dragSandbox = document.getElementById("dragSandbox");
+            qrAlertBanner = document.getElementById("qrAlertBanner");
+            arMessageOverlay = document.getElementById("arMessageOverlay");
+            phase3DialogueBox = document.getElementById("phase3DialogueBox");
+            btnDollScan = document.getElementById("btnDollScan");
+            btnPlantScan = document.getElementById("btnPlantScan");
+            gasCanister = document.getElementById("gasCanister");
+            canisterFluid = document.getElementById("canisterFluid");
+            canisterStatusText = document.getElementById("canisterStatusText");
+            btnQrBypass = document.getElementById("btnQrBypass");
+            targetPlant = document.getElementById("targetPlant");
+            targetDoll = document.getElementById("targetDoll");
+            virtualQrController = document.getElementById("virtualQrController");
+            virtualQrButtonGrid = document.getElementById("virtualQrButtonGrid");
+            phase4StepTitle = document.getElementById("phase4StepTitle");
+            waterPercent = document.getElementById("waterPercent");
+            waterBar = document.getElementById("waterBar");
+            dragSandbox4 = document.getElementById("dragSandbox4");
+            combineZone = document.getElementById("combineZone");
+            waterTankCanister = document.getElementById("waterTankCanister");
+            waterCanisterFluid = document.getElementById("waterCanisterFluid");
+            waterStatusText = document.getElementById("waterStatusText");
+            flameLayer = document.getElementById("flameLayer");
+            phase4DialogueBox = document.getElementById("phase4DialogueBox");
+            btnFireVerify = document.getElementById("btnFireVerify");
+            btnReleaseWater = document.getElementById("btnReleaseWater"); // 신규
+            virtualCardController = document.getElementById("virtualCardController");
+            virtualCardButtonGrid = document.getElementById("virtualCardButtonGrid");
+            btnStage4Bypass = document.getElementById("btnStage4Bypass");
+            videoPopup = document.getElementById("videoPopup");
+            btnCloseVideo = document.getElementById("btnCloseVideo");
+            hintVideo = document.getElementById("hintVideo");
+            customToast = document.getElementById("customToast");
+            decryptModal = document.getElementById("decryptModal");
+            decryptPromptText = document.getElementById("decryptPromptText");
+            decryptInput = document.getElementById("decryptInput");
+            btnDecryptCancel = document.getElementById("btnDecryptCancel");
+            btnDecryptConfirm = document.getElementById("btnDecryptConfirm");
+            btnBgmToggle = document.getElementById("btnBgmToggle");
+            btnHome = document.getElementById("btnHome");
+            secureIndicator = document.getElementById("secureIndicator");
+            secureText = document.getElementById("secureText");
+            p3SirenText = document.getElementById("p3SirenText");
+            
+            canvas = document.getElementById("particleCanvas");
+            if (canvas) ctx = canvas.getContext("2d");
+        }
+
+        // =============================================================
+        // 입력 활성화 정밀 제어 감지기
+        // =============================================================
+        function checkLoginValid() {
+            if (!inputName || !inputCode || !btnStart) return;
+            const name = inputName.value.trim();
+            const code = inputCode.value.trim().toUpperCase();
+            
+            if (name.length > 0 && code === "SHADOW2026") {
+                btnStart.disabled = false;
+                btnStart.innerText = "임무 시작 (START MISSION)";
+                btnStart.classList.remove("bg-gray-950", "text-gray-500", "border-gray-700");
+                btnStart.classList.add("bg-blue-600", "text-white", "neon-blue-glow", "border-blue-500");
+            } else {
+                btnStart.disabled = true;
+                btnStart.innerText = "요원 정보 대기 중...";
+                btnStart.classList.add("bg-gray-950", "text-gray-500", "border-gray-700");
+                btnStart.classList.remove("bg-blue-600", "text-white", "neon-blue-glow", "border-blue-500");
+            }
+        }
+
+        function updateSystemTime() {
+            const now = new Date();
+            let hours = now.getHours().toString().padStart(2, '0');
+            let minutes = now.getMinutes().toString().padStart(2, '0');
+            const el = document.getElementById("systemTime");
+            if (el) el.innerText = `${hours}:${minutes} KST`;
+        }
+
+        // ==========================================
+        // UI 연출 함수들
+        // ==========================================
+        function typeWriter(element, text, speed = 30, callback = null) {
+            isTyping = true;
+            if (element) element.innerHTML = "";
+            let i = 0;
+            if (typingTimer) clearInterval(typingTimer);
+            typingTimer = setInterval(() => {
+                if (i < text.length) {
+                    if (element) element.innerHTML += text.charAt(i);
+                    i++;
+                } else {
+                    clearInterval(typingTimer);
+                    isTyping = false;
+                    if (callback) callback();
+                }
+            }, speed);
+        }
+
+        function skipTyping(element, fullText) {
+            clearInterval(typingTimer);
+            if (element) element.innerHTML = fullText;
+            isTyping = false;
+        }
+
+        function triggerScreenShake() {
+            if (padContainer) {
+                padContainer.classList.add("shake-effect", "border-red-500", "neon-red-glow");
+                padContainer.classList.remove("border-blue-500", "neon-blue-glow");
+                setTimeout(() => {
+                    padContainer.classList.remove("shake-effect", "border-red-500", "neon-red-glow");
+                    padContainer.classList.add("border-blue-500", "neon-blue-glow");
+                }, 1000);
+            }
+        }
+
+        function showSystemWarning(msg) {
+            triggerScreenShake();
+            if (customToast) {
+                customToast.innerText = msg;
+                customToast.classList.remove("hidden");
+                customToast.style.opacity = "1";
+                setTimeout(() => {
+                    customToast.style.opacity = "0";
+                    setTimeout(() => customToast.classList.add("hidden"), 300);
+                }, 3000);
+            }
+        }
+
+        function requestDecryption(promptText, callback) {
+            if (decryptModal && decryptPromptText && decryptInput) {
+                decryptPromptText.innerText = promptText;
+                decryptInput.value = "";
+                activeDecryptCallback = callback;
+                decryptModal.classList.remove("hidden");
+                setTimeout(() => decryptInput.focus(), 100);
+            }
+        }
+
+        function resetGameSystem() {
+            location.reload();
+        }
+
+        // ==========================================
+        // 파티클 엔진
+        // ==========================================
+        function resizeCanvas() {
+            if (canvas) { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x; this.y = y;
+                this.size = Math.random() * 5 + 2;
+                this.speedX = Math.random() * 6 - 3;
+                this.speedY = Math.random() * -6 - 2;
+                this.color = color;
+                this.gravity = 0.12; this.life = 1.0;
+                this.decay = Math.random() * 0.015 + 0.01;
+            }
+            update() { this.speedY += this.gravity; this.x += this.speedX; this.y += this.speedY; this.life -= this.decay; }
+            draw() {
+                if (!ctx) return;
+                ctx.save(); ctx.globalAlpha = this.life; ctx.fillStyle = this.color; ctx.shadowBlur = 10; ctx.shadowColor = this.color;
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+            }
+        }
+
+        function createCelebrateParticles() {
+            if (!canvas) return;
+            const cx = canvas.width / 2, cy = canvas.height * 0.6;
+            for (let i = 0; i < 60; i++) particles.push(new Particle(cx, cy, neonColors[Math.floor(Math.random() * neonColors.length)]));
+        }
+
+        function createAmbientParticles() {
+            if (!canvas) return;
+            if (particles.length < 20 && Math.random() < 0.05) {
+                particles.push({
+                    x: Math.random() * canvas.width, y: canvas.height + 10,
+                    size: Math.random() * 2 + 1, speedX: Math.random() * 0.4 - 0.2, speedY: Math.random() * -1 - 0.5,
+                    color: "rgba(59, 130, 246, 0.4)", life: 1.0, decay: 0.005,
+                    update: function() { this.x += this.speedX; this.y += this.speedY; this.life -= this.decay; },
+                    draw: function() {
+                        if (!ctx) return;
+                        ctx.fillStyle = this.color; ctx.globalAlpha = this.life;
+                        ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+                    }
+                });
+            }
+        }
+
+        function animate() {
+            if (!ctx || !canvas) { requestAnimationFrame(animate); return; }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            createAmbientParticles();
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                if (p && p.update) { p.update(); p.draw(); }
+                if (p && p.life <= 0) particles.splice(i, 1);
+            }
+            requestAnimationFrame(animate);
+        }
+
+        // ==========================================
+        // 오디오 시스템
+        // ==========================================
+        function initAudioContext() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+        function playGlitchStaticSound(duration = 4.0) {
+            initAudioContext();
+            if (!audioCtx) return;
+            try {
+                const bufferSize = audioCtx.sampleRate * duration;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    let whiteNoise = Math.random() * 2 - 1;
+                    let crackle = (Math.random() < 0.0025) ? (Math.random() * 3 - 1.5) : 0;
+                    data[i] = (whiteNoise * 0.35 + crackle) * 0.75;
+                }
+                const source = audioCtx.createBufferSource(); source.buffer = buffer;
+                const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(3200, audioCtx.currentTime); filter.frequency.linearRampToValueAtTime(120, audioCtx.currentTime + duration);
+                const gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                for (let t = 0; t < duration; t += 0.04) gain.gain.setValueAtTime(Math.random() < 0.35 ? 0 : Math.random() * 0.2 + 0.08, audioCtx.currentTime + t);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                source.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+                source.start(); source.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        function playSynthesizedFizz() {
+            initAudioContext();
+            if (!audioCtx) return;
+            try {
+                const bufferSize = audioCtx.sampleRate * 0.5;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+                const filter = audioCtx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.setValueAtTime(1000, audioCtx.currentTime); filter.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.5);
+                const gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.15, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+                noise.start(); noise.stop(audioCtx.currentTime + 0.5);
+            } catch(e) {}
+        }
+
+        function applyBgmUIState(isPlaying) {
+            if (!btnBgmToggle) return;
+            if (isPlaying) {
+                btnBgmToggle.textContent = "BGM: ON";
+                btnBgmToggle.className = "px-2 py-1 bg-gray-950 border border-emerald-600 text-[10px] text-emerald-400 rounded transition-all";
+            } else {
+                btnBgmToggle.textContent = "BGM: OFF";
+                btnBgmToggle.className = "px-2 py-1 bg-gray-950 border border-blue-900 text-[10px] text-blue-400 rounded transition-all";
+            }
+        }
+
+        function playBGM(specificUrl = null) {
+            const gameBgm = document.getElementById("gameBgm");
+            if (!gameBgm) return;
+            if (specificUrl) { gameBgm.src = specificUrl; gameBgm.load(); }
+            GAME_STATE.bgmPlaying = true; applyBgmUIState(true);
+            gameBgm.play().catch(() => {});
+        }
+
+        function stopBGM() {
+            const gameBgm = document.getElementById("gameBgm");
+            if (gameBgm) gameBgm.pause();
+            GAME_STATE.bgmPlaying = false; applyBgmUIState(false);
+        }
+
+        function bindBgmToggleDirect() {
+            if (btnBgmToggle) {
+                btnBgmToggle.onclick = () => {
+                    if (GAME_STATE.bgmPlaying) { stopBGM(); } else { playBGM(); }
+                };
+            }
+        }
+
+        // ==========================================
+        // 드래그 충돌 검사 및 이벤트 로직 (3단계 & 4단계 공통)
+        // ==========================================
+        function bindElementDragEvents(element, stepType) {
+            let startX=0, startY=0, initL=0, initT=0, isDragging=false;
+            function onStart(e) { isDragging=true; startX = e.type.includes('touch')?e.touches[0].clientX:e.clientX; startY = e.type.includes('touch')?e.touches[0].clientY:e.clientY; initL=parseFloat(element.style.left)||0; initT=parseFloat(element.style.top)||0; element.style.zIndex="100"; }
+            function onMove(e) { if(!isDragging)return; const cx = e.type.includes('touch')?e.touches[0].clientX:e.clientX; const cy = e.type.includes('touch')?e.touches[0].clientY:e.clientY; element.style.left = `${initL + cx - startX}px`; element.style.top = `${initT + cy - startY}px`; e.preventDefault(); }
+            function onEnd() { 
+                if(!isDragging)return; isDragging=false; element.style.zIndex="20"; 
+                if(stepType==="3") checkDropCollision(element); 
+                else {
+                    if (element.dataset.type === "H2O_BULLET") checkBulletExtinguishCollision(element);
+                    else checkElementCollision(element); 
+                }
+            }
+            element.addEventListener('mousedown', onStart); document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onEnd);
+            element.addEventListener('touchstart', onStart, {passive:false}); document.addEventListener('touchmove', onMove, {passive:false}); document.addEventListener('touchend', onEnd);
+        }
+
+        // --- 3단계 전용 충돌 및 상태 변경 함수 ---
+        function checkDropCollision(element) {
+            const bRect = element.getBoundingClientRect(), cRect = gasCanister.getBoundingClientRect();
+            const bX = bRect.left + bRect.width / 2, bY = bRect.top + bRect.height / 2;
+            if (bX >= cRect.left - 30 && bX <= cRect.right + 30 && bY >= cRect.top - 30 && bY <= cRect.bottom + 30) { 
+                handleCanisterStore(element, element.dataset.type); return; 
+            }
+            if (GAME_STATE.phase3.step === "STEP_C" || GAME_STATE.phase3.step === "STEP_E") { 
+                const pArea = targetPlant.getBoundingClientRect(); 
+                if (bX >= pArea.left - 20 && bX <= pArea.right + 20 && bY >= pArea.top - 20 && bY <= pArea.bottom + 20) { 
+                    if (element.dataset.type === "CO2") handleTransformToO2(element); return; 
+                } 
+            }
+            if (GAME_STATE.phase3.step === "STEP_D" || GAME_STATE.phase3.step === "STEP_F") { 
+                const dArea = targetDoll.getBoundingClientRect(); 
+                if (bX >= dArea.left - 20 && bX <= dArea.right + 20 && bY >= dArea.top - 20 && bY <= dArea.bottom + 20) { 
+                    if (element.dataset.type === "O2") handleOxygenInjectToDoll(element); return; 
+                } 
+            }
+        }
+
+        function handleCanisterStore(element, type) {
+            if ((GAME_STATE.phase3.step === "STEP_C" || GAME_STATE.phase3.step === "STEP_E") && type === "O2") {
+                element.remove(); GAME_STATE.phase3.storedGases.push("O2"); updateCanisterUI();
+                if (GAME_STATE.phase3.storedGases.length === 6) { 
+                    if (GAME_STATE.phase3.step === "STEP_C") triggerStepDTransition(); 
+                    else if (GAME_STATE.phase3.step === "STEP_E") triggerStepFTransition(); 
+                }
+            } else if (GAME_STATE.phase3.step === "STEP_D" && type === "CO2") {
+                element.remove(); GAME_STATE.phase3.storedGases.push("CO2"); updateCanisterUI();
+                if (GAME_STATE.phase3.storedGases.length === 6) triggerStepETransition();
+            }
+        }
+
+        function handleTransformToO2(element) {
+            element.remove();
+            if (arMessageOverlay) {
+                arMessageOverlay.classList.remove("hidden"); arMessageOverlay.style.opacity = "1";
+                setTimeout(() => { arMessageOverlay.style.opacity = "0"; setTimeout(() => arMessageOverlay.classList.add("hidden"), 300); }, 2200);
+            }
+            const o2Bubble = document.createElement("div");
+            o2Bubble.className = "gas-bubble absolute w-12 h-12 rounded-full bg-emerald-600/80 border-2 border-emerald-400 flex items-center justify-center font-black text-xs text-white shadow-lg select-none z-20 animate-bounce";
+            o2Bubble.innerText = "O2"; o2Bubble.dataset.type = "O2";
+            o2Bubble.style.left = element.style.left; o2Bubble.style.top = element.style.top;
+            bindElementDragEvents(o2Bubble, "3"); if (dragSandbox) dragSandbox.appendChild(o2Bubble);
+        }
+
+        function handleOxygenInjectToDoll(element) {
+            element.remove();
+            if (!dragSandbox) return;
+            if (dragSandbox.querySelectorAll('.gas-bubble[data-type="O2"]').length === 0) {
+                if (GAME_STATE.phase3.step === "STEP_D") {
+                    GAME_STATE.phase3.satLevel = 50; updateSatGauge();
+                    setTimeout(() => {
+                        spawnGasParticles("CO2", 6);
+                        if (p3SirenText) p3SirenText.innerText = "⚠️ 경고: 산소 부족 경보 (중대수치 도달)";
+                        if (phase3DialogueBox) typeWriter(phase3DialogueBox, "인형친구가 산소(O2)를 들이마셔 이산화탄소(CO2)로 배출하였습니다!", 25);
+                    }, 500);
+                } else if (GAME_STATE.phase3.step === "STEP_F") {
+                    GAME_STATE.phase3.satLevel = 100; updateSatGauge(); triggerEndingPhase();
+                }
+            }
+        }
+
+        // ==========================================
+        // 게임 미션 로직 (스테이지 1~3 진행 및 UI)
+        // ==========================================
+        function showDialogue() {
+            const currentText = dialogueParagraphs[dialogueIndex];
+            if (dialogueText) {
+                typeWriter(dialogueText, currentText, 30, () => {
+                    if (dialogueIndex === dialogueParagraphs.length - 1) {
+                        if (btnNextDialogue) btnNextDialogue.classList.add("hidden");
+                        if (btnBagFound) btnBagFound.classList.remove("hidden");
+                    }
+                });
+            }
+        }
+
+        function startStage1() {
+            dialogueParagraphs = [
+                `${GAME_STATE.agentName} 요원! 급히 연락해서 미안해. 악의 조직 '섀도우'가 마침내 움직이기 시작했어. 다음 타겟은 바로 너희 집이야!`,
+                `언제 어디서 공격이 시작될지 몰라. 시간이 없어! 너의 소중한 인형 친구들과 식물들을 지켜야 해.`,
+                `이 소식을 전하려던 요원이 너희 집 근처에서 행방불명됐어. GPS 추적 결과 마지막 신호가 '베란다 안'에서 끊겼대.`,
+                `분명 베란다 안 어딘가에 요원의 흔적이 있을거야! 서둘러 베란다를 수색해 줘! 뭔가 찾았다면 아래 버튼을 눌러!`
+            ];
+            dialogueIndex = 0;
+            showDialogue();
+        }
+
+        function startStage2() {
+            const txt = "7번 원소인 액체 질소(N)를 의미하는 거였구나! 질소 가스는 주변을 꽁꽁 얼어붙게 만드는 특징이 있어. 밀서를 숨겨둔 장소가 질소의 성질과 연관되어 있을지 몰라";
+            if (phase2Dialogue) {
+                typeWriter(phase2Dialogue, txt, 25, () => {
+                    if (btnLetterFound) btnLetterFound.style.display = "block";
+                });
+            }
+        }
+
+        function initPhase3System() {
+            GAME_STATE.phase3 = { step: "STEP_A", satLevel: 0, storedGases: [], scannedCO2Cards: new Set() };
+            updateSatGauge(); updateCanisterUI();
+            if (padContainer) padContainer.classList.add("red-alert-active");
+            if (btnDollScan) { btnDollScan.classList.remove("hidden"); btnDollScan.innerText = "인형 스캔 (SCAN DOLL)"; }
+            if (btnPlantScan) btnPlantScan.classList.add("hidden");
+            
+            startCameraStreaming();
+            if (phase3DialogueBox) typeWriter(phase3DialogueBox, "인형의 실제 QR 코드를 카메라에 인식시키거나, [인형 스캔] 버튼을 눌러 승인 코드를 입력하십시오!", 25);
+        }
+
+        function startCameraStreaming() {
+            isCameraActive = true;
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(stream => {
+                    localStream = stream;
+                    if (cameraVideo) { cameraVideo.srcObject = stream; cameraVideo.play().catch(()=>{}); }
+                    requestAnimationFrame(drawCameraFrame);
+                }).catch(() => requestAnimationFrame(drawVirtualCameraFrame));
+            } else { requestAnimationFrame(drawVirtualCameraFrame); }
+        }
+
+        function drawCameraFrame() {
+            if (!isCameraActive || stage4?.classList.contains("hidden")) return;
+            if (cameraVideo && cameraVideo.readyState >= cameraVideo.HAVE_CURRENT_DATA && cameraCanvas) {
+                cameraCanvas.width = cameraCanvas.clientWidth; cameraCanvas.height = cameraCanvas.clientHeight;
+                cameraCtx.drawImage(cameraVideo, 0, 0, cameraCanvas.width, cameraCanvas.height);
+                scanQrCode();
+            }
+            requestAnimationFrame(drawCameraFrame);
+        }
+
+        let vTick = 0;
+        function drawVirtualCameraFrame() {
+            if (!isCameraActive || stage4?.classList.contains("hidden")) return;
+            vTick++;
+            if (cameraCanvas && cameraCtx) {
+                cameraCanvas.width = cameraCanvas.clientWidth; cameraCanvas.height = cameraCanvas.clientHeight;
+                cameraCtx.fillStyle = "#090d16"; cameraCtx.fillRect(0, 0, cameraCanvas.width, cameraCanvas.height);
+                cameraCtx.fillStyle = "rgba(59, 130, 246, 0.4)"; cameraCtx.font = "10px Orbitron"; cameraCtx.fillText("AR SCANNER: VIRTUAL DETECTING ACTIVE", 15, 25);
+            }
+            requestAnimationFrame(drawVirtualCameraFrame);
+        }
+
+        function scanQrCode() {
+            try {
+                const imageData = cameraCtx.getImageData(0, 0, cameraCanvas.width, cameraCanvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+                if (code) processDecryptedQr(code.data.trim());
+            } catch (e) {}
+        }
+
+        function processDecryptedQr(qrText) {
+            if (GAME_STATE.phase3.step === "STEP_A" && qrText === "Science Saver_STAGE3_DOLL") handleDollScanSuccess();
+            else if (GAME_STATE.phase3.step === "STEP_B" && qrText === "Science Saver_STAGE3_PLANT") handlePlantScanSuccess();
+            else if (GAME_STATE.phase3.step === "STEP_C" && qrText.startsWith("Science Saver_STAGE3_CO2_")) handleCO2CardScan(qrText);
+        }
+
+        function updateSatGauge() {
+            const bar = document.getElementById('satBar'); const percentText = document.getElementById('satPercent');
+            if (percentText) percentText.innerText = `${GAME_STATE.phase3.satLevel}%`;
+            if (bar) {
+                bar.style.width = `${GAME_STATE.phase3.satLevel}%`;
+                bar.className = GAME_STATE.phase3.satLevel < 50 ? "bg-red-500 h-full transition-all duration-300" : (GAME_STATE.phase3.satLevel < 100 ? "bg-yellow-500 h-full transition-all duration-300" : "bg-green-500 h-full transition-all duration-300");
+            }
+        }
+
+        function updateCanisterUI() {
+            if (!canisterFluid || !canisterStatusText) return;
+            if (GAME_STATE.phase3.storedGases.length === 0) {
+                canisterFluid.style.height = "0%";
+                canisterStatusText.innerText = "EMPTY";
+            } else {
+                const fillPercent = Math.min((GAME_STATE.phase3.storedGases.length / 6) * 100, 100);
+                canisterFluid.style.height = `${fillPercent}%`;
+                const type = GAME_STATE.phase3.storedGases[0];
+                canisterStatusText.innerText = `${type}\n x ${GAME_STATE.phase3.storedGases.length}개`;
+                canisterFluid.className = `w-full ${type==='O2'?'bg-emerald-500/40':'bg-purple-500/40'} h-0 absolute bottom-0 left-0 transition-all duration-300`;
+            }
+        }
+
+        function updatePhase3Buttons() {
+            if (!btnDollScan || !btnPlantScan) return;
+            btnDollScan.classList.add("hidden"); btnPlantScan.classList.add("hidden");
+            if (GAME_STATE.phase3.step === "STEP_A") { btnDollScan.classList.remove("hidden"); btnDollScan.innerText = "인형 스캔 (SCAN DOLL)"; }
+            else if (GAME_STATE.phase3.step === "STEP_D") { btnDollScan.classList.remove("hidden"); btnDollScan.innerText = "산소 방출 (RELEASE O2)"; }
+            else if (GAME_STATE.phase3.step === "STEP_E") { btnPlantScan.classList.remove("hidden"); btnPlantScan.innerText = "이산화탄소 방출 (RELEASE CO2)"; }
+            else if (GAME_STATE.phase3.step === "STEP_F") { btnDollScan.classList.remove("hidden"); btnDollScan.innerText = "최종 산소 방출 (RELEASE O2)"; }
+        }
+
+        function renderVirtualQrButtons() {
+            if (!virtualQrButtonGrid) return;
+            virtualQrButtonGrid.innerHTML = "";
+            if (GAME_STATE.phase3.step === "STEP_A") {
+                const btn = document.createElement("button"); btn.className="px-2 py-1 text-[10px] border font-bold rounded transition-all bg-emerald-950 border-emerald-500 text-emerald-300"; btn.innerText="인형 QR 스캔 모사"; btn.onclick=()=>processDecryptedQr("Science Saver_STAGE3_DOLL"); virtualQrButtonGrid.appendChild(btn);
+                virtualQrController?.classList.remove("hidden");
+            } else if (GAME_STATE.phase3.step === "STEP_B") {
+                const btn = document.createElement("button"); btn.className="px-2 py-1 text-[10px] border font-bold rounded transition-all bg-blue-950 border-blue-500 text-blue-300"; btn.innerText="화분 QR 스캔 모사"; btn.onclick=()=>processDecryptedQr("Science Saver_STAGE3_PLANT"); virtualQrButtonGrid.appendChild(btn);
+                virtualQrController?.classList.remove("hidden");
+            } else if (GAME_STATE.phase3.step === "STEP_C") {
+                virtualQrController?.classList.remove("hidden");
+                for (let i = 1; i <= 6; i++) {
+                    const cardId = `Science Saver_STAGE3_CO2_${i}`;
+                    const isScanned = GAME_STATE.phase3.scannedCO2Cards.has(cardId);
+                    const btn = document.createElement("button");
+                    btn.className = `px-2 py-1 text-[10px] border font-bold rounded transition-all ${isScanned ? 'bg-gray-800 text-gray-600 border-gray-700 cursor-not-allowed' : 'bg-purple-950 border-purple-500 text-purple-400 hover:bg-purple-600 hover:text-white'}`;
+                    btn.innerText = `원소 카드 ${i}번 스캔`; btn.disabled = isScanned; btn.onclick = () => processDecryptedQr(cardId);
+                    virtualQrButtonGrid.appendChild(btn);
+                }
+            } else if (GAME_STATE.phase3.step === "STEP_E") {
+                const btn = document.createElement("button"); btn.className="px-2 py-1 text-[10px] border font-bold rounded transition-all bg-teal-950 border-teal-500 text-teal-300"; btn.innerText="화분 정화 QR 스캔 모사"; btn.onclick=()=>processDecryptedQr("Science Saver_STAGE3_PLANT"); virtualQrButtonGrid.appendChild(btn);
+                virtualQrController?.classList.remove("hidden");
+            } else {
+                virtualQrController?.classList.add("hidden");
+            }
+        }
+
+        function spawnGasParticles(type, count) {
+            if (dragSandbox) dragSandbox.innerHTML = "";
+            for (let i = 0; i < count; i++) {
+                const bubble = document.createElement("div");
+                bubble.className = `gas-bubble absolute w-12 h-12 rounded-full ${type==='O2'?'bg-emerald-600/80 border-emerald-400':'bg-purple-600/80 border-purple-400'} border-2 flex items-center justify-center font-black text-xs text-white shadow-lg select-none z-20 animate-pulse`;
+                bubble.innerText = type; bubble.dataset.type = type;
+                bubble.style.left = `${Math.random() * 200 + 40}px`; bubble.style.top = `${Math.random() * 100 + 40}px`;
+                bindElementDragEvents(bubble, "3");
+                dragSandbox.appendChild(bubble);
+            }
+        }
+
+        function handleDollScanSuccess() {
+            if (GAME_STATE.phase3.step !== "STEP_A") return;
+            createCelebrateParticles();
+            typeWriter(phase3DialogueBox, "산소 부족으로 인형이 호흡이 어렵습니다! 산소를 구하는 방법은 [합성법의 열쇠 영상]에 있습니다!", 25, () => {
+                const btnWatchVideo = document.createElement("button");
+                btnWatchVideo.className = "w-full py-3 mt-3 bg-red-950 border border-red-500 rounded-lg text-red-400 font-bold text-xs hover:bg-red-600 hover:text-white transition-all cyber-font";
+                btnWatchVideo.innerText = "🎬 합성법의 열쇠 영상 보기";
+                btnWatchVideo.onclick = () => triggerHintVideoModal(PATH_STAGE3_VIDEO);
+                phase3DialogueBox.appendChild(btnWatchVideo);
+            });
+        }
+
+        function handlePlantScanSuccess() {
+            GAME_STATE.phase3.step = "STEP_C"; if(phase3StepTitle) phase3StepTitle.innerText = "STEP C: 산소 생성";
+            if(targetPlant) targetPlant.classList.remove("hidden");
+            createCelebrateParticles();
+            typeWriter(phase3DialogueBox, "인형친구에게 필요한 산소를 만들기 위해, 요원의 가방에 있는 적절한 원소카드 6개가 필요합니다!", 25);
+            renderVirtualQrButtons();
+        }
+
+        function handleCO2CardScan(cardText) {
+            if (GAME_STATE.phase3.step !== "STEP_C" || GAME_STATE.phase3.scannedCO2Cards.has(cardText)) return;
+            GAME_STATE.phase3.scannedCO2Cards.add(cardText);
+            createCelebrateParticles();
+            const bubble = document.createElement("div");
+            bubble.className = `gas-bubble absolute w-12 h-12 rounded-full bg-purple-600/80 border-2 border-purple-400 flex items-center justify-center font-black text-xs text-white shadow-lg select-none z-20 animate-bounce`;
+            bubble.innerText = "CO2"; bubble.dataset.type = "CO2";
+            bubble.style.left = `${Math.random() * 200 + 40}px`; bubble.style.top = `${Math.random() * 100 + 40}px`;
+            bindElementDragEvents(bubble, "3");
+            if (dragSandbox) dragSandbox.appendChild(bubble);
+            renderVirtualQrButtons();
+        }
+
+        function triggerStepDTransition() {
+            GAME_STATE.phase3.step = "STEP_D"; if(phase3StepTitle) phase3StepTitle.innerText = "STEP D: 인형친구에게 첫 번째 산소 공급";
+            if(targetPlant) targetPlant.classList.add("hidden"); if(targetDoll) targetDoll.classList.remove("hidden");
+            updatePhase3Buttons(); renderVirtualQrButtons();
+            typeWriter(phase3DialogueBox, "청정 산소(O2) 6개가 모였습니다! 이제 인형친구에게 산소를 공급하세요!", 25);
+        }
+
+        function triggerStepETransition() {
+            GAME_STATE.phase3.step = "STEP_E"; if(phase3StepTitle) phase3StepTitle.innerText = "STEP E: 2차 광합성";
+            if(targetDoll) targetDoll.classList.add("hidden"); if(targetPlant) targetPlant.classList.remove("hidden");
+            updatePhase3Buttons(); renderVirtualQrButtons();
+            typeWriter(phase3DialogueBox, "2차 광합성 순환 작용을 시작하십시오!", 25);
+        }
+
+        function triggerStepFTransition() {
+            GAME_STATE.phase3.step = "STEP_F"; if(phase3StepTitle) phase3StepTitle.innerText = "STEP F: 인형친구에게 산소 공급";
+            if(targetPlant) targetPlant.classList.add("hidden"); if(targetDoll) targetDoll.classList.remove("hidden");
+            updatePhase3Buttons(); renderVirtualQrButtons();
+            typeWriter(phase3DialogueBox, "마지막 산소(O2) 수확 완료! 어서 인형친구에게 산소를 공급하세요!", 25);
+        }
+
+        function triggerEndingPhase() {
+            GAME_STATE.phase3.step = "END";
+            if (padContainer) { padContainer.classList.remove("red-alert-active", "neon-blue-glow"); padContainer.classList.add("neon-green-glow", "border-emerald-500"); }
+            if (secureIndicator) secureIndicator.className = "inline-block w-2.5 h-2.5 rounded-full bg-emerald-500";
+            if (secureText) { secureText.innerText = "SYSTEM SAFE"; secureText.className = "text-emerald-400"; }
+            if (virtualQrController) virtualQrController.classList.add("hidden");
+            
+            typeWriter(phase3DialogueBox, "성공이야! 이제 인형 친구들이 위험에서 벗어났어! 멋지게 기체 순환을 성공시켰구나!", 25, () => {
+                const btnNextStep4 = document.createElement("button");
+                btnNextStep4.className = "w-full py-3.5 mt-3 bg-emerald-950 border border-emerald-500 rounded-lg text-emerald-400 font-bold text-sm hover:bg-emerald-600 hover:text-white transition-all cyber-font animate-bounce";
+                btnNextStep4.innerText = "4단계 진행하기 →";
+                btnNextStep4.onclick = () => { stage4?.classList.add("hidden"); stage5?.classList.remove("hidden"); initPhase4System(); };
+                phase3DialogueBox.appendChild(btnNextStep4);
+            });
+        }
+
+        // ==========================================
+        // 🚨 4단계: H2O 소방 미션 
+        // ==========================================
+        function initPhase4System() {
+            GAME_STATE.phase4 = { step: "STEP_A", waterTankCount: 0, scannedElements: {H1:false,H2:false,O1:false}, firesExtinguishedCount: 0 };
+            updateWaterTankGauge(); updatePhase4Buttons(); renderVirtualCardButtons();
+            if (padContainer) padContainer.classList.add("red-alert-active");
+            if (secureText) { secureText.innerText = "EMERGENCY MODE"; secureText.className = "text-red-500"; }
+            startCameraStreaming4();
+            if (phase4DialogueBox) typeWriter(phase4DialogueBox, "안방 구역 화재 감지! SHADOW가 안방에 불을 내기 위해 방화점 3개를 설치했습니다! 먼저 아래 버튼을 눌러 화재 진압 권한을 획득하세요! ", 25);
+        }
+
+        function startCameraStreaming4() {
+            isCameraActive = true;
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(stream => {
+                    localStream = stream;
+                    if (cameraVideo) { cameraVideo.srcObject = stream; cameraVideo.play().catch(()=>{}); }
+                    requestAnimationFrame(drawCameraFrame4);
+                }).catch(() => requestAnimationFrame(drawVirtualCameraFrame4));
+            } else { requestAnimationFrame(drawVirtualCameraFrame4); }
+        }
+
+        function drawCameraFrame4() {
+            if (!isCameraActive || stage5?.classList.contains("hidden")) return;
+            if (cameraVideo && cameraVideo.readyState >= cameraVideo.HAVE_CURRENT_DATA && cameraCanvas4) {
+                cameraCanvas4.width = cameraCanvas4.clientWidth; cameraCanvas4.height = cameraCanvas4.clientHeight;
+                cameraCtx4.drawImage(cameraVideo, 0, 0, cameraCanvas4.width, cameraCanvas4.height);
+                scanQrCode4();
+            }
+            requestAnimationFrame(drawCameraFrame4);
+        }
+
+        function drawVirtualCameraFrame4() {
+            if (!isCameraActive || stage5?.classList.contains("hidden")) return;
+            if (cameraCanvas4 && cameraCtx4) {
+                cameraCanvas4.width = cameraCanvas4.clientWidth; cameraCanvas4.height = cameraCanvas4.clientHeight;
+                cameraCtx4.fillStyle = "#0c0202"; cameraCtx4.fillRect(0, 0, cameraCanvas4.width, cameraCanvas4.height);
+            }
+            requestAnimationFrame(drawVirtualCameraFrame4);
+        }
+
+        function scanQrCode4() {
+            try {
+                const imageData = cameraCtx4.getImageData(0, 0, cameraCanvas4.width, cameraCanvas4.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+                if (code) {
+                    if (GAME_STATE.phase4.step === "STEP_B") processDecryptedElementQr(code.data.trim());
+                    else if (GAME_STATE.phase4.step === "STEP_D") processDecryptedFireQr(code.data.trim());
+                }
+            } catch (e) {}
+        }
+
+        function processDecryptedElementQr(qrText) {
+            if (GAME_STATE.phase4.step !== "STEP_B") return;
+            if (qrText === "Science Saver_STAGE4_H_1" && !GAME_STATE.phase4.scannedElements.H1) { GAME_STATE.phase4.scannedElements.H1=true; spawnElementParticle("H", "bg-blue-600 border-blue-400"); playSynthesizedFizz(); createCelebrateParticles(); checkElementScanStatus(); }
+            else if (qrText === "Science Saver_STAGE4_H_2" && !GAME_STATE.phase4.scannedElements.H2) { GAME_STATE.phase4.scannedElements.H2=true; spawnElementParticle("H", "bg-blue-600 border-blue-400"); playSynthesizedFizz(); createCelebrateParticles(); checkElementScanStatus(); }
+            else if (qrText === "Science Saver_STAGE4_O_1" && !GAME_STATE.phase4.scannedElements.O1) { GAME_STATE.phase4.scannedElements.O1=true; spawnElementParticle("O", "bg-red-600 border-red-400"); playSynthesizedFizz(); createCelebrateParticles(); checkElementScanStatus(); }
+        }
+
+        function processDecryptedFireQr(qrText) {
+            if (GAME_STATE.phase4.step !== "STEP_D") return;
+            if (qrText === "Science Saver_STAGE4_FIRE_1") spawnFire(1);
+            else if (qrText === "Science Saver_STAGE4_FIRE_2") spawnFire(2);
+            else if (qrText === "Science Saver_STAGE4_FIRE_3") spawnFire(3);
+        }
+
+        function spawnFire(index) {
+            const fEl = document.getElementById(`fire${index}`);
+            if (fEl && fEl.classList.contains("hidden")) {
+                fEl.classList.remove("hidden"); playSynthesizedFizz();
+                showSystemWarning(`🔥 방화점 [불꽃 ${index}] 위치가 특정되었습니다!`);
+                renderVirtualCardButtons();
+            }
+        }
+
+        function checkElementScanStatus() {
+            renderVirtualCardButtons();
+            let hCount = (GAME_STATE.phase4.scannedElements.H1?1:0) + (GAME_STATE.phase4.scannedElements.H2?1:0);
+            let oCount = GAME_STATE.phase4.scannedElements.O1?1:0;
+            if (phase4DialogueBox) phase4DialogueBox.innerText = `수소(H) 수집율: ${hCount}/2, 산소(O) 수집율: ${oCount}/1. 필요한 카드를 더 비추어 주세요!`;
+            if (hCount === 2 && oCount === 1) triggerStepCTransit();
+        }
+
+        function updateWaterTankGauge() {
+            if (waterPercent) waterPercent.innerText = `${GAME_STATE.phase4.waterTankCount}/3`;
+            if (waterBar) waterBar.style.width = `${(GAME_STATE.phase4.waterTankCount / 3) * 100}%`;
+            if (waterCanisterFluid) waterCanisterFluid.style.height = `${(GAME_STATE.phase4.waterTankCount / 3) * 100}%`;
+            if (waterStatusText) waterStatusText.innerText = GAME_STATE.phase4.waterTankCount === 0 ? "EMPTY" : (GAME_STATE.phase4.waterTankCount<3 ? "CHARGING" : "FULL");
+        }
+
+        function renderVirtualCardButtons() {
+            if (!virtualCardButtonGrid) return;
+            virtualCardButtonGrid.innerHTML = "";
+            const titleText = document.getElementById("vCardTitleText");
+
+            if (GAME_STATE.phase4.step === "STEP_B") {
+                if (titleText) titleText.innerText = "🛠️ 가상 스캔 모듈 (테스트용 대체 버튼)";
+                virtualCardController?.classList.remove("hidden");
+
+                const h1Scanned = GAME_STATE.phase4.scannedElements.H1;
+                const btnH1 = document.createElement("button"); btnH1.className = `px-3 py-1.5 text-xs border font-bold rounded-lg transition-all ${h1Scanned ? 'bg-gray-800 text-gray-600 border-gray-700 cursor-not-allowed' : 'bg-blue-950 border-blue-500 text-blue-400 hover:bg-blue-600 hover:text-white'}`;
+                btnH1.innerText = `스캔1 ${h1Scanned ? '✅' : '🔍'}`; btnH1.disabled = h1Scanned; btnH1.onclick = () => processDecryptedElementQr("Science Saver_STAGE4_H_1"); virtualCardButtonGrid.appendChild(btnH1);
+
+                const h2Scanned = GAME_STATE.phase4.scannedElements.H2;
+                const btnH2 = document.createElement("button"); btnH2.className = `px-3 py-1.5 text-xs border font-bold rounded-lg transition-all ${h2Scanned ? 'bg-gray-800 text-gray-600 border-gray-700 cursor-not-allowed' : 'bg-blue-950 border-blue-500 text-blue-400 hover:bg-blue-600 hover:text-white'}`;
+                btnH2.innerText = `스캔2 ${h2Scanned ? '✅' : '🔍'}`; btnH2.disabled = h2Scanned; btnH2.onclick = () => processDecryptedElementQr("Science Saver_STAGE4_H_2"); virtualCardButtonGrid.appendChild(btnH2);
+
+                const o1Scanned = GAME_STATE.phase4.scannedElements.O1;
+                const btnO1 = document.createElement("button"); btnO1.className = `px-3 py-1.5 text-xs border font-bold rounded-lg transition-all ${o1Scanned ? 'bg-gray-800 text-gray-600 border-gray-700 cursor-not-allowed' : 'bg-red-950 border-red-500 text-red-400 hover:bg-red-600 hover:text-white'}`;
+                btnO1.innerText = `스캔3 ${o1Scanned ? '✅' : '🔍'}`; btnO1.disabled = o1Scanned; btnO1.onclick = () => processDecryptedElementQr("Science Saver_STAGE4_O_1"); virtualCardButtonGrid.appendChild(btnO1);
+            } 
+            else if (GAME_STATE.phase4.step === "STEP_D") {
+                if (titleText) titleText.innerText = "🔥 방화점 QR 스캔 모듈 (테스트용 대체 버튼)";
+                virtualCardController?.classList.remove("hidden");
+                for (let i = 1; i <= 3; i++) {
+                    const fEl = document.getElementById(`fire${i}`);
+                    const isSpawned = fEl && !fEl.classList.contains("hidden");
+                    const btnF = document.createElement("button");
+                    btnF.className = `px-3 py-1.5 text-xs border font-bold rounded-lg transition-all ${isSpawned ? 'bg-gray-800 text-gray-600 border-gray-700 cursor-not-allowed' : 'bg-orange-950 border-orange-500 text-orange-400 hover:bg-orange-600 hover:text-white'}`;
+                    btnF.innerText = `방화점 ${i}번 위치 탐지 ${isSpawned ? '✅' : '🔍'}`; btnF.disabled = isSpawned; btnF.onclick = () => processDecryptedFireQr(`Science Saver_STAGE4_FIRE_${i}`); virtualCardButtonGrid.appendChild(btnF);
+                }
+            } else {
+                virtualCardController?.classList.add("hidden");
+            }
+        }
+
+        function triggerStepBTransit() {
+            GAME_STATE.phase4.step = "STEP_B";
+            if (phase4StepTitle) phase4StepTitle.innerText = "STEP B: 소방 시스템 가동";
+            if (combineZone) combineZone.classList.remove("hidden");
+            renderVirtualCardButtons();
+            if (phase4DialogueBox) typeWriter(phase4DialogueBox, "화재를 진압하기 위해 당신이 소방 시스템을 가동해야 합니다. 필요한 원소를 화면 중앙의 [원소 결합 구역]에 모두 드래그해 넣어주세요!", 25);
+        }
+
+        function spawnElementParticle(elementName, colorClass) {
+            const bubble = document.createElement("div");
+            bubble.className = `gas-bubble absolute w-12 h-12 rounded-full ${colorClass} border-2 flex items-center justify-center font-black text-xs text-white shadow-lg select-none z-20 animate-pulse`;
+            bubble.innerText = elementName; bubble.dataset.type = elementName;
+            const pw = arContainer4 ? arContainer4.clientWidth : 400, ph = arContainer4 ? arContainer4.clientHeight : 280;
+            bubble.style.left = `${Math.random() * (pw - 80) + 20}px`; bubble.style.top = `${Math.random() * (ph - 120) + 20}px`;
+            bindElementDragEvents(bubble, "4");
+            if (dragSandbox4) dragSandbox4.appendChild(bubble);
+        }
+
+        function checkElementCollision(element) {
+            const bRect = element.getBoundingClientRect(), cRect = combineZone.getBoundingClientRect(), tRect = waterTankCanister.getBoundingClientRect();
+            const bX = bRect.left + bRect.width / 2, bY = bRect.top + bRect.height / 2;
+            
+            if (GAME_STATE.phase4.step === "STEP_B" && bX >= cRect.left && bX <= cRect.right && bY >= cRect.top && bY <= cRect.bottom) { 
+                element.dataset.combined = "true"; element.style.opacity = "0.5"; checkCombinationFusion(); return; 
+            }
+            
+            if (element.dataset.type === "H2O" && bX >= tRect.left && bX <= tRect.right && bY >= tRect.top && bY <= tRect.bottom) {
+                element.remove(); GAME_STATE.phase4.waterTankCount++; updateWaterTankGauge(); playSynthesizedFizz();
+                if (GAME_STATE.phase4.waterTankCount < 3) { 
+                    GAME_STATE.phase4.scannedElements = { H1: false, H2: false, O1: false };
+                    renderVirtualCardButtons(); 
+                    if(phase4DialogueBox) phase4DialogueBox.innerText = `[${GAME_STATE.phase4.waterTankCount}/3 충전 완료]: 방화점을 진압하려면 물탱크를 가득 채워야 합니다! 카드를 다시 인식시켜주세요.`; 
+                } else { 
+                    triggerStepDTransit(); 
+                }
+            }
+        }
+
+        function checkCombinationFusion() {
+            const all = dragSandbox4.querySelectorAll('.gas-bubble'); let cH = 0, cO = 0;
+            all.forEach(b => { if (b.dataset.combined === "true") { if (b.dataset.type === "H") cH++; if (b.dataset.type === "O") cO++; } });
+            
+            if (cH >= 2 && cO >= 1) {
+                playSynthesizedFizz(); 
+                all.forEach(b => { if (b.dataset.combined === "true") b.remove(); });
+                
+                const h2o = document.createElement("div"); 
+                h2o.className = "gas-bubble absolute w-16 h-16 rounded-full bg-blue-500 border-4 border-white flex items-center justify-center font-black text-white shadow-2xl z-25 animate-bounce"; 
+                h2o.innerText = "H2O"; h2o.dataset.type = "H2O";
+                h2o.style.left = `${(arContainer4 ? arContainer4.clientWidth : 400) / 2 - 32}px`; h2o.style.top = `${(arContainer4 ? arContainer4.clientHeight : 280) / 2 - 32}px`;
+                bindElementDragEvents(h2o, "4"); if (dragSandbox4) dragSandbox4.appendChild(h2o);
+                
+                if (phase4DialogueBox) phase4DialogueBox.innerText = "H2O 분자가 합성되었습니다! 융합된 물방울을 우측 하단 [물 탱크]로 드래그하세요!";
+            }
+        }
+
+        function triggerStepCTransit() {
+            GAME_STATE.phase4.step = "STEP_C";
+            triggerStepBTransit();
+        }
+
+        function triggerStepDTransit() {
+            GAME_STATE.phase4.step = "STEP_D"; if(phase4StepTitle) phase4StepTitle.innerText = "STEP D: 방화점 스캔 및 소방";
+            if(combineZone) combineZone.classList.add("hidden"); 
+            if(flameLayer) flameLayer.classList.remove("hidden");
+            if(dragSandbox4) dragSandbox4.innerHTML = "";
+            
+            const f1 = document.getElementById("fire1"), f2 = document.getElementById("fire2"), f3 = document.getElementById("fire3");
+            if (f1) f1.classList.add("hidden"); if (f2) f2.classList.add("hidden"); if (f3) f3.classList.add("hidden");
+            
+            if(phase4DialogueBox) typeWriter(phase4DialogueBox, "소방 시스템 가동 성공! 이제 안방에서 방화점(불꽃)을 3개 찾아야 합니다! 방화점 3개를 모두 찾으면 태블릿에 인식시키고 불을 끄세요! 시간이 없습니다!", 25);
+            
+            renderVirtualCardButtons();
+            
+            if (btnReleaseWater) btnReleaseWater.classList.remove("hidden");
+        }
+
+        function spawnWaterBullets(count) {
+            for(let i=0; i<count; i++) {
+                const bullet = document.createElement("div"); 
+                bullet.className="gas-bubble absolute w-14 h-14 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center font-black text-white z-30 animate-pulse"; 
+                bullet.innerText="H2O"; bullet.dataset.type="H2O_BULLET"; 
+                bullet.style.left=`${40+i*70}px`; bullet.style.top="200px"; 
+                bindElementDragEvents(bullet, "4"); if(dragSandbox4) dragSandbox4.appendChild(bullet);
+            }
+        }
+
+        function checkBulletExtinguishCollision(bullet) {
+            const bRect = bullet.getBoundingClientRect();
+            ["fire1", "fire2", "fire3"].forEach(fId => {
+                const fEl = document.getElementById(fId);
+                if (fEl && !fEl.classList.contains("hidden")) {
+                    const fRect = fEl.getBoundingClientRect();
+                    const bCenterX = bRect.left + bRect.width / 2, bCenterY = bRect.top + bRect.height / 2;
+
+                    if (bCenterX >= fRect.left && bCenterX <= fRect.right && bCenterY >= fRect.top && bCenterY <= fRect.bottom) {
+                        fEl.classList.add("hidden"); 
+                        bullet.remove(); 
+                        playSynthesizedFizz(); 
+                        GAME_STATE.phase4.firesExtinguishedCount++;
+                        renderVirtualCardButtons();
+                        if (GAME_STATE.phase4.firesExtinguishedCount >= 3) triggerFireSuppressionSuccess();
+                    }
+                }
+            });
+        }
+
+        function updatePhase4Buttons() {
+            if (!btnFireVerify) return;
+            btnFireVerify.classList.add("hidden");
+            if (GAME_STATE.phase4.step === "STEP_A") {
+                btnFireVerify.classList.remove("hidden"); btnFireVerify.innerText = "화재 진압 권한 획득";
+            }
+        }
+
+        function triggerFireSuppressionSuccess() {
+            GAME_STATE.phase4.step = "SUCCESS"; createCelebrateParticles();
+            if (padContainer) { padContainer.classList.remove("red-alert-active", "neon-red-glow"); padContainer.classList.add("neon-green-glow", "border-emerald-500"); }
+            if (secureIndicator) secureIndicator.className = "inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+            if (secureText) { secureText.innerText = "🟢 SECURE: ALL FIRE ELEMENTS RESOLVED"; secureText.className = "text-emerald-400 font-bold cyber-font"; }
+            if(phase4DialogueBox) typeWriter(phase4DialogueBox, "🎉 화재 진압 성공! 시스템이 곧 정상화됩니다...", 25, () => setTimeout(triggerStage5ShadowHack, 3000));
+        }
+
+        function triggerStage5ShadowHack() {
+            playGlitchStaticSound(4.0);
+            if (padContainer) { padContainer.classList.add("glitch-active", "shake-effect"); padContainer.classList.remove("neon-green-glow", "border-emerald-500"); padContainer.classList.add("border-red-600", "neon-red-glow"); }
+            if (stage5) stage5.classList.add("hidden"); if(stageFinal) stageFinal.classList.remove("hidden");
+            
+            if (stageFinal) {
+                stageFinal.innerHTML = `
+                    <div class="w-20 h-20 bg-red-950 border-2 border-red-500 rounded-full flex items-center justify-center animate-pulse"><span class="text-red-500 font-black text-2xl cyber-font">X</span></div>
+                    <h2 class="text-3xl font-black tracking-widest text-red-500 cyber-font neon-text-red">SYSTEM HACKED</h2>
+                    <p class="text-gray-400 text-sm mt-4 font-bold">침입자: SHADOW</p>
+                    <div class="bg-gray-950 p-4 border border-red-800 rounded-lg text-red-400 font-bold max-w-xs" id="hack-msg"></div>
+                `;
+            }
+            const hackMsg = document.getElementById("hack-msg");
+            if (hackMsg) {
+                typeWriter(hackMsg, "하하하!!! ${GAME_STATE.agentName} 요원! 여기까지 애썼지만 모두 헛수고다!! 거실 컴퓨터에 시한폭탄이 작동했다! 태블릿 연동을 끊겠다. 저승에서 보자!!", 40, () => {
+                    setTimeout(() => {
+                        playBGM(SHADOW_AUDIO_URL);
+                        if (stageFinal) {
+                            stageFinal.innerHTML = `
+                                <div class="w-20 h-20 bg-gray-900 border-2 border-gray-600 rounded-full flex items-center justify-center"><span class="text-gray-500 font-black text-2xl cyber-font">!</span></div>
+                                <h2 class="text-3xl font-black tracking-widest text-gray-500 cyber-font">CONNECTION LOST</h2>
+                                <p class="text-gray-600 text-sm mt-4">원격 시스템 셧다운</p>
+                            `;
+                        }
+                        if (padContainer) padContainer.className = "w-full max-w-2xl bg-gray-950 border-4 border-gray-800 rounded-3xl p-6 md:p-8 z-10 relative flex flex-col justify-between min-h-[600px] transition-all duration-500";
+                    }, 3000);
+                });
+            }
+        }
+
+        // ==========================================
+        // 비디오 제어
+        // ==========================================
+        function triggerHintVideoModal(videoPath) { if (!hintVideo) return; hintVideo.src = videoPath; hintVideo.load(); if (videoPopup) videoPopup.classList.remove("hidden"); hintVideo.play().catch(e => console.warn(e)); }
+        function handleVideoCloseAction() {
+            if (hintVideo) { hintVideo.pause(); hintVideo.src = ""; }
+            if (videoPopup) videoPopup.classList.add("hidden");
+            if (GAME_STATE.phase4.step === "STEP_A") { triggerStepBTransit(); }
+            else if (GAME_STATE.phase3.step === "STEP_A") { handlePlantScanSuccess(); }
+        }
+
+        // ==========================================
+        // 🚨 핵심 진입: DOMContentLoaded 완벽 동기화
+        // ==========================================
+        window.addEventListener("DOMContentLoaded", () => {
+            cacheDOMElements();
+            bindBgmToggleDirect();
+            updateSystemTime(); setInterval(updateSystemTime, 10000);
+            resizeCanvas(); window.addEventListener("resize", resizeCanvas); animate();
+
+            if (inputName && inputCode) {
+                inputName.addEventListener("input", checkLoginValid);
+                inputCode.addEventListener("input", checkLoginValid);
+            }
+
+            if (btnStart) {
+                btnStart.onclick = () => {
+                    const code = inputCode.value.trim().toUpperCase();
+                    if (code === "SHADOW2026") {
+                        GAME_STATE.agentName = inputName.value.trim();
+                        if (agentNameDisplay) agentNameDisplay.innerText = `AGENT: ${GAME_STATE.agentName}`;
+                        loginErrorMessage?.classList.add("hidden");
+                        
+                        btnStart.innerText = "스캐너 조율 중...";
+                        setTimeout(() => {
+                            btnStart.innerText = "임무 시작 (START MISSION)";
+                            playBGM(BGM_URL);
+                            stage0?.classList.add("hidden");
+                            stage1?.classList.remove("hidden");
+                            startStage1();
+                        }, 800);
+                    }
+                };
+            }
+
+            if (btnNextDialogue) {
+                btnNextDialogue.onclick = () => {
+                    if (isTyping) { 
+                        skipTyping(dialogueText, dialogueParagraphs[dialogueIndex]); 
+                        if (dialogueIndex === dialogueParagraphs.length - 1) { 
+                            btnNextDialogue.classList.add("hidden"); 
+                            btnBagFound?.classList.remove("hidden"); 
+                        } 
+                    }
+                    else { 
+                        if (dialogueIndex < dialogueParagraphs.length - 1) { 
+                            dialogueIndex++; 
+                            showDialogue(); 
+                        } 
+                    }
+                };
+            }
+
+            if (btnBagFound) btnBagFound.onclick = () => { stage1?.classList.add("hidden"); stage2?.classList.remove("hidden"); };
+            if (btnSubmitChemical) btnSubmitChemical.onclick = () => {
+                if (inputChemical.value.trim().toUpperCase() === "N") { errorPhase1?.classList.add("hidden"); successPhase1?.classList.remove("hidden"); btnGoToPhase2?.classList.remove("hidden"); createCelebrateParticles(); }
+                else { errorPhase1?.classList.remove("hidden"); triggerScreenShake(); }
+            };
+            if (btnGoToPhase2) btnGoToPhase2.onclick = () => { stage2?.classList.add("hidden"); stage3?.classList.remove("hidden"); startStage2(); };
+            if (btnLetterFound) btnLetterFound.onclick = () => { phase2LetterCheck?.classList.add("hidden"); phase2WeaponInput?.classList.remove("hidden"); typeWriter(phase2Dialogue, "밀서 어딘가에 SHADOW의 공격 무기 이름이 있을거야. 공격무기 이름을 입력해줘!", 25); };
+            if (btnSubmitWeapon) btnSubmitWeapon.onclick = () => {
+                if (inputWeapon.value.replace(/\s+/g, "") === "음이온가스변환기") { errorPhase2?.classList.add("hidden"); phase2WeaponInput?.classList.add("hidden"); successPhase2?.classList.remove("hidden"); createCelebrateParticles(); }
+                else { errorPhase2?.classList.remove("hidden"); triggerScreenShake(); }
+            };
+            if (btnNextToPhase3) btnNextToPhase3.onclick = () => { stage3?.classList.add("hidden"); stage4?.classList.remove("hidden"); playBGM(BGM_URL_STAGE3); initPhase3System(); };
+            if (btnDollScan) btnDollScan.onclick = () => {
+                if (GAME_STATE.phase3.step === "STEP_A") handleDollScanSuccess();
+                else if (GAME_STATE.phase3.step === "STEP_D" || GAME_STATE.phase3.step === "STEP_F") { GAME_STATE.phase3.storedGases=[]; updateCanisterUI(); spawnGasParticles("O2", 6); showSystemWarning("산소 방출 완료!"); }
+            };
+            if (btnPlantScan) btnPlantScan.onclick = () => { GAME_STATE.phase3.storedGases=[]; updateCanisterUI(); spawnGasParticles("CO2", 6); showSystemWarning("이산화탄소 방출 완료!"); };
+            if (btnFireVerify) btnFireVerify.onclick = () => {
+                btnFireVerify.classList.add("hidden"); typeWriter(phase4DialogueBox, "화재를 진압하기 위해 당신이 소방 시스템을 가동해야 합니다. 이 영상을 보고 필요한 재료를 만드세요!", 25, () => {
+                    const btnV = document.createElement("button"); btnV.className="w-full py-2 mt-2 bg-red-900 border border-red-500 rounded font-bold text-xs text-white cyber-font"; btnV.innerText="🎬 물 합성 영상 보기";
+                    btnV.onclick=() => triggerHintVideoModal(PATH_STAGE4_VIDEO);
+                    phase4DialogueBox.appendChild(btnV);
+                });
+            };
+            
+            if (btnReleaseWater) {
+                btnReleaseWater.onclick = () => {
+                    if (GAME_STATE.phase4.waterTankCount > 0) {
+                        spawnWaterBullets(GAME_STATE.phase4.waterTankCount);
+                        GAME_STATE.phase4.waterTankCount = 0;
+                        updateWaterTankGauge();
+                        btnReleaseWater.classList.add("hidden");
+                        if(phase4DialogueBox) typeWriter(phase4DialogueBox, "물방울이 방출되었습니다! 방화점에 드래그하여 화재를 진압하십시오!", 25);
+                    }
+                };
+            }
+
+            if (btnQrBypass) btnQrBypass.onclick = () => {
+                if(GAME_STATE.phase3.step === "STEP_A") { GAME_STATE.phase3.step = "STEP_C"; handlePlantScanSuccess(); }
+                else triggerEndingPhase();
+            };
+            if (btnStage4Bypass) btnStage4Bypass.onclick = () => {
+                if(GAME_STATE.phase4.step === "STEP_A") triggerStepBTransit();
+                else if(GAME_STATE.phase4.step === "STEP_B") { GAME_STATE.phase4.waterTankCount = 3; updateWaterTankGauge(); triggerStepDTransit(); }
+                else triggerFireSuppressionSuccess();
+            };
+            
+            if (btnCloseVideo) btnCloseVideo.onclick = () => { handleVideoCloseAction(); };
+            
+            if (btnHome) btnHome.onclick = () => location.reload();
+            
+            checkLoginValid();
+        });
+    </script>
+</body>
+</html>
